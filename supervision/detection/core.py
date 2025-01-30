@@ -712,7 +712,7 @@ class Detections:
         """
         if "error" in azure_result:
             raise ValueError(
-                f'Azure API returned an error {azure_result["error"]["message"]}'
+                f"Azure API returned an error {azure_result['error']['message']}"
             )
 
         xyxy, confidences, class_ids = [], [], []
@@ -969,32 +969,23 @@ class Detections:
     def empty(cls) -> Detections:
         """
         Create an empty Detections object with no bounding boxes,
-            confidences, or class IDs.
+        confidences, or class IDs.
 
         Returns:
             (Detections): An empty Detections object.
-
-        Example:
-            ```python
-            from supervision import Detections
-
-            empty_detections = Detections.empty()
-            ```
         """
         return cls(
             xyxy=np.empty((0, 4), dtype=np.float32),
-            confidence=np.array([], dtype=np.float32),
-            class_id=np.array([], dtype=int),
+            confidence=np.empty(0, dtype=np.float32),
+            class_id=np.empty(0, dtype=int),
+            tracker_id=np.empty(0, dtype=int),
         )
 
     def is_empty(self) -> bool:
         """
         Returns `True` if the `Detections` object is considered empty.
         """
-        empty_detections = Detections.empty()
-        empty_detections.data = self.data
-        empty_detections.metadata = self.metadata
-        return self == empty_detections
+        return len(self.xyxy) == 0 and all(not v.size for k, v in self.data.items())
 
     @classmethod
     def merge(cls, detections_list: List[Detections]) -> Detections:
@@ -1306,9 +1297,9 @@ class Detections:
         if len(self) == 0:
             return self
 
-        assert (
-            self.confidence is not None
-        ), "Detections confidence must be given for NMS to be executed."
+        assert self.confidence is not None, (
+            "Detections confidence must be given for NMS to be executed."
+        )
 
         if class_agnostic:
             predictions = np.hstack((self.xyxy, self.confidence.reshape(-1, 1)))
@@ -1362,9 +1353,9 @@ class Detections:
         if len(self) == 0:
             return self
 
-        assert (
-            self.confidence is not None
-        ), "Detections confidence must be given for NMM to be executed."
+        assert self.confidence is not None, (
+            "Detections confidence must be given for NMM to be executed."
+        )
 
         if class_agnostic:
             predictions = np.hstack((self.xyxy, self.confidence.reshape(-1, 1)))
