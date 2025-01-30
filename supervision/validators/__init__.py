@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, Dict
 
 import numpy as np
@@ -54,7 +56,7 @@ def validate_confidence(confidence: Any, n: int) -> None:
 
 
 def validate_keypoint_confidence(confidence: Any, n: int, m: int) -> None:
-    expected_shape = f"({n,m})"
+    expected_shape = f"({n, m})"
     actual_shape = str(getattr(confidence, "shape", None))
 
     if confidence is not None:
@@ -138,3 +140,19 @@ def validate_keypoints_fields(
     validate_class_id(class_id, n)
     validate_keypoint_confidence(confidence, n, m)
     validate_data(data, n)
+
+
+def _safe_concatenate(arrays):
+    if all(arr is None for arr in arrays):
+        return None
+    if any(arr is None for arr in arrays):
+        raise ValueError("All or none of the arrays must be None")
+    return np.concatenate(arrays)
+
+
+def _safe_stack(arrays):
+    if all(arr is None for arr in arrays):
+        return None
+    if any(arr is None for arr in arrays):
+        raise ValueError("All or none of the arrays must be None")
+    return np.vstack(arrays)

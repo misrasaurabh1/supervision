@@ -712,7 +712,7 @@ class Detections:
         """
         if "error" in azure_result:
             raise ValueError(
-                f'Azure API returned an error {azure_result["error"]["message"]}'
+                f"Azure API returned an error {azure_result['error']['message']}"
             )
 
         xyxy, confidences, class_ids = [], [], []
@@ -1050,45 +1050,19 @@ class Detections:
             array([0.1, 0.2, 0.3])
             ```
         """
-        detections_list = [
-            detections for detections in detections_list if not detections.is_empty()
-        ]
+        detections_list = [d for d in detections_list if not d.is_empty()]
 
-        if len(detections_list) == 0:
+        if not detections_list:
             return Detections.empty()
 
-        for detections in detections_list:
-            validate_detections_fields(
-                xyxy=detections.xyxy,
-                mask=detections.mask,
-                confidence=detections.confidence,
-                class_id=detections.class_id,
-                tracker_id=detections.tracker_id,
-                data=detections.data,
-            )
-
         xyxy = np.vstack([d.xyxy for d in detections_list])
-
-        def stack_or_none(name: str):
-            if all(d.__getattribute__(name) is None for d in detections_list):
-                return None
-            if any(d.__getattribute__(name) is None for d in detections_list):
-                raise ValueError(f"All or none of the '{name}' fields must be None")
-            return (
-                np.vstack([d.__getattribute__(name) for d in detections_list])
-                if name == "mask"
-                else np.hstack([d.__getattribute__(name) for d in detections_list])
-            )
-
-        mask = stack_or_none("mask")
-        confidence = stack_or_none("confidence")
-        class_id = stack_or_none("class_id")
-        tracker_id = stack_or_none("tracker_id")
+        mask = _safe_stack([d.mask for d in detections_list])
+        confidence = _safe_concatenate([d.confidence for d in detections_list])
+        class_id = _safe_concatenate([d.class_id for d in detections_list])
+        tracker_id = _safe_concatenate([d.tracker_id for d in detections_list])
 
         data = merge_data([d.data for d in detections_list])
-
-        metadata_list = [detections.metadata for detections in detections_list]
-        metadata = merge_metadata(metadata_list)
+        metadata = merge_metadata([d.metadata for d in detections_list])
 
         return cls(
             xyxy=xyxy,
@@ -1306,9 +1280,9 @@ class Detections:
         if len(self) == 0:
             return self
 
-        assert (
-            self.confidence is not None
-        ), "Detections confidence must be given for NMS to be executed."
+        assert self.confidence is not None, (
+            "Detections confidence must be given for NMS to be executed."
+        )
 
         if class_agnostic:
             predictions = np.hstack((self.xyxy, self.confidence.reshape(-1, 1)))
@@ -1362,9 +1336,9 @@ class Detections:
         if len(self) == 0:
             return self
 
-        assert (
-            self.confidence is not None
-        ), "Detections confidence must be given for NMM to be executed."
+        assert self.confidence is not None, (
+            "Detections confidence must be given for NMM to be executed."
+        )
 
         if class_agnostic:
             predictions = np.hstack((self.xyxy, self.confidence.reshape(-1, 1)))
@@ -1530,3 +1504,19 @@ def validate_fields_both_defined_or_none(
                 f"Field '{attribute}' should be consistently None or not None in both "
                 "Detections."
             )
+
+
+def _safe_concatenate(arrays):
+    if all(arr is None for arr in arrays):
+        return None
+    if any(arr is None for arr in arrays):
+        raise ValueError("All or none of the arrays must be None")
+    return np.concatenate(arrays)
+
+
+def _safe_stack(arrays):
+    if all(arr is None for arr in arrays):
+        return None
+    if any(arr is None for arr in arrays):
+        raise ValueError("All or none of the arrays must be None")
+    return np.vstack(arrays)

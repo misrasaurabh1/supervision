@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from itertools import chain
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -918,38 +920,25 @@ def merge_data(
     if not data_list:
         return {}
 
-    all_keys_sets = [set(data.keys()) for data in data_list]
-    if not all(keys_set == all_keys_sets[0] for keys_set in all_keys_sets):
+    all_keys = set(data_list[0])
+    if not all(keys == all_keys for keys in map(set, data_list)):
         raise ValueError("All data dictionaries must have the same keys to merge.")
 
+    merged_data = {key: [] for key in all_keys}
     for data in data_list:
-        lengths = [len(value) for value in data.values()]
-        if len(set(lengths)) > 1:
-            raise ValueError(
-                "All data values within a single object must have equal length."
-            )
+        for key, value in data.items():
+            merged_data[key].append(value)
 
-    merged_data = {key: [] for key in all_keys_sets[0]}
-    for data in data_list:
-        for key in data:
-            merged_data[key].append(data[key])
-
-    for key in merged_data:
-        if all(isinstance(item, list) for item in merged_data[key]):
-            merged_data[key] = list(chain.from_iterable(merged_data[key]))
-        elif all(isinstance(item, np.ndarray) for item in merged_data[key]):
-            ndim = merged_data[key][0].ndim
-            if ndim == 1:
-                merged_data[key] = np.hstack(merged_data[key])
-            elif ndim > 1:
-                merged_data[key] = np.vstack(merged_data[key])
+    for key, values in merged_data.items():
+        if all(isinstance(item, list) for item in values):
+            merged_data[key] = list(chain.from_iterable(values))
+        elif all(isinstance(item, np.ndarray) for item in values):
+            if values[0].ndim == 1:
+                merged_data[key] = np.concatenate(values)
             else:
-                raise ValueError(f"Unexpected array dimension for key '{key}'.")
+                merged_data[key] = np.vstack(values)
         else:
-            raise ValueError(
-                f"Inconsistent data types for key '{key}'. Only np.ndarray and list "
-                f"types are allowed."
-            )
+            raise ValueError(f"Inconsistent data types for key '{key}'.")
 
     return merged_data
 
@@ -986,25 +975,12 @@ def merge_metadata(metadata_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         for key, value in metadata.items():
             if key not in merged_metadata:
                 merged_metadata[key] = value
-                continue
-
-            other_value = merged_metadata[key]
-            if isinstance(value, np.ndarray) and isinstance(other_value, np.ndarray):
+            elif isinstance(value, np.ndarray):
                 if not np.array_equal(merged_metadata[key], value):
-                    raise ValueError(
-                        f"Conflicting metadata for key: '{key}': "
-                        "{type(value)}, {type(other_value)}."
-                    )
-            elif isinstance(value, np.ndarray) or isinstance(other_value, np.ndarray):
-                # Since [] == np.array([]).
-                raise ValueError(
-                    f"Conflicting metadata for key: '{key}': "
-                    "{type(value)}, {type(other_value)}."
-                )
+                    raise ValueError(f"Conflicting metadata for key '{key}'.")
             else:
-                print("hm")
                 if merged_metadata[key] != value:
-                    raise ValueError(f"Conflicting metadata for key: '{key}'.")
+                    raise ValueError(f"Conflicting metadata for key '{key}'.")
 
     return merged_metadata
 
@@ -1238,3 +1214,19 @@ def spread_out_boxes(
         xyxy_padded[:, [2, 3]] += force_vectors
 
     return pad_boxes(xyxy_padded, px=-1)
+
+
+def _safe_concatenate(arrays):
+    if all(arr is None for arr in arrays):
+        return None
+    if any(arr is None for arr in arrays):
+        raise ValueError("All or none of the arrays must be None")
+    return np.concatenate(arrays)
+
+
+def _safe_stack(arrays):
+    if all(arr is None for arr in arrays):
+        return None
+    if any(arr is None for arr in arrays):
+        raise ValueError("All or none of the arrays must be None")
+    return np.vstack(arrays)
