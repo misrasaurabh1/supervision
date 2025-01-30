@@ -390,28 +390,15 @@ class Detections:
 
         Returns:
             Detections: A new Detections object.
-
-        Example:
-            ```python
-            import supervision as sv
-            from deepsparse import Pipeline
-
-            yolo_pipeline = Pipeline.create(
-                task="yolo",
-                model_path = "zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned80_quant-none"
-             )
-            result = yolo_pipeline(<SOURCE IMAGE PATH>)
-            detections = sv.Detections.from_deepsparse(result)
-            ```
-        """  # noqa: E501 // docs
-
-        if np.asarray(deepsparse_results.boxes[0]).shape[0] == 0:
+        """
+        boxes = np.array(deepsparse_results.boxes[0])
+        if not boxes.size:
             return cls.empty()
 
         return cls(
-            xyxy=np.array(deepsparse_results.boxes[0]),
+            xyxy=boxes,
             confidence=np.array(deepsparse_results.scores[0]),
-            class_id=np.array(deepsparse_results.labels[0]).astype(float).astype(int),
+            class_id=np.array(deepsparse_results.labels[0], dtype=int),
         )
 
     @classmethod
@@ -712,7 +699,7 @@ class Detections:
         """
         if "error" in azure_result:
             raise ValueError(
-                f'Azure API returned an error {azure_result["error"]["message"]}'
+                f"Azure API returned an error {azure_result['error']['message']}"
             )
 
         xyxy, confidences, class_ids = [], [], []
@@ -969,22 +956,16 @@ class Detections:
     def empty(cls) -> Detections:
         """
         Create an empty Detections object with no bounding boxes,
-            confidences, or class IDs.
+        confidences, or class IDs.
 
         Returns:
-            (Detections): An empty Detections object.
-
-        Example:
-            ```python
-            from supervision import Detections
-
-            empty_detections = Detections.empty()
-            ```
+            Detections: An empty Detections object.
         """
+        empty_array = np.empty((0, 4), dtype=np.float32)
         return cls(
-            xyxy=np.empty((0, 4), dtype=np.float32),
-            confidence=np.array([], dtype=np.float32),
-            class_id=np.array([], dtype=int),
+            xyxy=empty_array,
+            confidence=np.empty(0, dtype=np.float32),
+            class_id=np.empty(0, dtype=int),
         )
 
     def is_empty(self) -> bool:
@@ -1306,9 +1287,9 @@ class Detections:
         if len(self) == 0:
             return self
 
-        assert (
-            self.confidence is not None
-        ), "Detections confidence must be given for NMS to be executed."
+        assert self.confidence is not None, (
+            "Detections confidence must be given for NMS to be executed."
+        )
 
         if class_agnostic:
             predictions = np.hstack((self.xyxy, self.confidence.reshape(-1, 1)))
@@ -1362,9 +1343,9 @@ class Detections:
         if len(self) == 0:
             return self
 
-        assert (
-            self.confidence is not None
-        ), "Detections confidence must be given for NMM to be executed."
+        assert self.confidence is not None, (
+            "Detections confidence must be given for NMM to be executed."
+        )
 
         if class_agnostic:
             predictions = np.hstack((self.xyxy, self.confidence.reshape(-1, 1)))
