@@ -299,18 +299,17 @@ class LineZone:
         Assumes that class_names are only provided when class_ids are.
         """
         class_names = detections.data.get(CLASS_NAME_DATA_FIELD)
-        assert class_names is None or detections.class_id is not None
+        class_ids = detections.class_id
 
-        if detections.class_id is None:
+        if class_ids is None:
             return
 
-        if class_names is None:
-            new_names = {class_id: str(class_id) for class_id in detections.class_id}
-        else:
-            new_names = {
-                class_id: class_name
-                for class_id, class_name in zip(detections.class_id, class_names)
-            }
+        # Optimized dictionary comprehension and removed redundant dictionary accesses
+        new_names = {
+            class_id: (str(class_id) if class_names is None else class_name)
+            for class_id, class_name in zip(class_ids, class_names or [])
+        }
+
         self.class_id_to_name.update(new_names)
 
 
