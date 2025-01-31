@@ -77,25 +77,29 @@ class KalmanFilter:
                 covariance matrix of the predicted state.
                 Unobserved velocities are initialized to 0 mean.
         """
-        std_pos = [
-            self._std_weight_position * mean[3],
-            self._std_weight_position * mean[3],
-            1e-2,
-            self._std_weight_position * mean[3],
-        ]
-        std_vel = [
-            self._std_weight_velocity * mean[3],
-            self._std_weight_velocity * mean[3],
-            1e-5,
-            self._std_weight_velocity * mean[3],
-        ]
-        motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
+        std_pos = self._std_weight_position * mean[3]
+        std_vel = self._std_weight_velocity * mean[3]
 
-        mean = np.dot(mean, self._motion_mat.T)
-        covariance = (
-            np.linalg.multi_dot((self._motion_mat, covariance, self._motion_mat.T))
-            + motion_cov
+        motion_cov = np.diag(
+            [
+                std_pos**2,
+                std_pos**2,
+                1e-2**2,
+                std_pos**2,
+                std_vel**2,
+                std_vel**2,
+                1e-5**2,
+                std_vel**2,
+            ]
         )
+
+        # Predict mean vector
+        mean = mean.dot(self._motion_mat.T)
+
+        # Predict covariance matrix using optimized matrix multiplications
+        motion_mat_T = self._motion_mat.T
+        covariance = covariance.dot(motion_mat_T)
+        covariance = self._motion_mat.dot(covariance) + motion_cov
 
         return mean, covariance
 
