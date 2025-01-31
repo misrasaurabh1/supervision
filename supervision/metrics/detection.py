@@ -276,7 +276,7 @@ class ConfusionMatrix:
             num_classes (int): Number of classes.
             conf_threshold (float): Detection confidence threshold between `0` and `1`.
                 Detections with lower confidence will be excluded.
-            iou_threshold (float): Detection iou  threshold between `0` and `1`.
+            iou_threshold (float): Detection iou threshold between `0` and `1`.
                 Detections with lower iou will be classified as `FP`.
 
         Returns:
@@ -301,7 +301,7 @@ class ConfusionMatrix:
         )
         matched_idx = np.asarray(iou_batch > iou_threshold).nonzero()
 
-        if matched_idx[0].shape[0]:
+        if matched_idx[0].size > 0:
             matches = np.stack(
                 (matched_idx[0], matched_idx[1], iou_batch[matched_idx]), axis=1
             )
@@ -309,21 +309,30 @@ class ConfusionMatrix:
         else:
             matches = np.zeros((0, 3))
 
-        matched_true_idx, matched_detection_idx, _ = matches.transpose().astype(
-            np.int16
-        )
+        if matches.size > 0:
+            matched_true_idx, matched_detection_idx, _ = matches.transpose().astype(
+                np.int16
+            )
+        else:
+            matched_true_idx = np.array([], dtype=np.int16)
+            matched_detection_idx = np.array([], dtype=np.int16)
 
+        # First pass: increment TP or FN
         for i, true_class_value in enumerate(true_classes):
             j = matched_true_idx == i
-            if matches.shape[0] > 0 and sum(j) == 1:
-                result_matrix[
-                    true_class_value, detection_classes[matched_detection_idx[j]]
-                ] += 1  # TP
+            match_count = np.count_nonzero(j)
+            if match_count == 1:
+                detection_index = matched_detection_idx[j][0]
+                result_matrix[true_class_value, detection_classes[detection_index]] += (
+                    1  # TP
+                )
             else:
                 result_matrix[true_class_value, num_classes] += 1  # FN
 
+        # Second pass: increment FP for unmatched detections
+        matched_detection_indices_set = set(matched_detection_idx.tolist())
         for i, detection_class_value in enumerate(detection_classes):
-            if not any(matched_detection_idx == i):
+            if i not in matched_detection_indices_set:
                 result_matrix[num_classes, detection_class_value] += 1  # FP
 
         return result_matrix
@@ -334,10 +343,14 @@ class ConfusionMatrix:
         Deduplicate matches. If there are multiple matches for the same true or
         predicted box, only the one with the highest IoU is kept.
         """
-        if matches.shape[0] > 0:
+        if matches.size > 0:
+            # Sort by IoU in descending order
             matches = matches[matches[:, 2].argsort()[::-1]]
+            # Deduplicate predicted boxes by taking first occurrence (highest IoU)
             matches = matches[np.unique(matches[:, 1], return_index=True)[1]]
+            # Sort by IoU in descending order again
             matches = matches[matches[:, 2].argsort()[::-1]]
+            # Deduplicate true boxes by taking first occurrence (highest IoU)
             matches = matches[np.unique(matches[:, 0], return_index=True)[1]]
         return matches
 

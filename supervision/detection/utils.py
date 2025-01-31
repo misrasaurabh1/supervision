@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from itertools import chain
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -65,17 +67,18 @@ def box_iou_batch(boxes_true: np.ndarray, boxes_detection: np.ndarray) -> np.nda
             `shape = (N, M)` where `N` is number of true objects and
             `M` is number of detected objects.
     """
-
-    def box_area(box):
-        return (box[2] - box[0]) * (box[3] - box[1])
-
-    area_true = box_area(boxes_true.T)
-    area_detection = box_area(boxes_detection.T)
+    # Vectorized area computation for true and detected boxes
+    area_true = (boxes_true[:, 2] - boxes_true[:, 0]) * (
+        boxes_true[:, 3] - boxes_true[:, 1]
+    )
+    area_detection = (boxes_detection[:, 2] - boxes_detection[:, 0]) * (
+        boxes_detection[:, 3] - boxes_detection[:, 1]
+    )
 
     top_left = np.maximum(boxes_true[:, None, :2], boxes_detection[:, :2])
     bottom_right = np.minimum(boxes_true[:, None, 2:], boxes_detection[:, 2:])
 
-    area_inter = np.prod(np.clip(bottom_right - top_left, a_min=0, a_max=None), 2)
+    area_inter = np.prod(np.clip(bottom_right - top_left, a_min=0, a_max=None), axis=2)
     ious = area_inter / (area_true[:, None] + area_detection - area_inter)
     ious = np.nan_to_num(ious)
     return ious
