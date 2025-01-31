@@ -329,10 +329,10 @@ def joint_tracks(
         Combined list of tracks from track_list_a and track_list_b
             without duplicate internal_track_id values.
     """
-    seen_track_ids = set()
-    result = []
+    seen_track_ids = {track.internal_track_id for track in track_list_a}
+    result = track_list_a[:]
 
-    for track in track_list_a + track_list_b:
+    for track in track_list_b:
         if track.internal_track_id not in seen_track_ids:
             seen_track_ids.add(track.internal_track_id)
             result.append(track)
