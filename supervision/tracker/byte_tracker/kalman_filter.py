@@ -43,20 +43,17 @@ class KalmanFilter:
                 covariance matrix (8x8 dimensional) of the new track.
                 Unobserved velocities are initialized to 0 mean.
         """
+        measurement_h = measurement[3]
         mean_pos = measurement
         mean_vel = np.zeros_like(mean_pos)
-        mean = np.r_[mean_pos, mean_vel]
+        mean = np.concatenate((mean_pos, mean_vel))
 
-        std = [
-            2 * self._std_weight_position * measurement[3],
-            2 * self._std_weight_position * measurement[3],
-            1e-2,
-            2 * self._std_weight_position * measurement[3],
-            10 * self._std_weight_velocity * measurement[3],
-            10 * self._std_weight_velocity * measurement[3],
-            1e-5,
-            10 * self._std_weight_velocity * measurement[3],
-        ]
+        std_pos = 2 * self._std_weight_position * measurement_h
+        std_vel = 10 * self._std_weight_velocity * measurement_h
+        std = np.array(
+            [std_pos, std_pos, 1e-2, std_pos, std_vel, std_vel, 1e-5, std_vel]
+        )
+
         covariance = np.diag(np.square(std))
         return mean, covariance
 
