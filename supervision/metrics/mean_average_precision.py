@@ -283,27 +283,39 @@ class MeanAveragePrecision(Metric):
         iou: np.ndarray,
         iou_thresholds: np.ndarray,
     ) -> np.ndarray:
-        num_predictions, num_iou_levels = (
-            predictions_classes.shape[0],
-            iou_thresholds.shape[0],
-        )
+        num_predictions = predictions_classes.shape[0]
+        num_iou_levels = iou_thresholds.shape[0]
         correct = np.zeros((num_predictions, num_iou_levels), dtype=bool)
+
+        if num_predictions == 0 or target_classes.size == 0:
+            return correct
+
+        # Broadcasting correct class match
         correct_class = target_classes[:, None] == predictions_classes
 
         for i, iou_level in enumerate(iou_thresholds):
-            matched_indices = np.where((iou >= iou_level) & correct_class)
+            matched_indices = (iou >= iou_level) & correct_class
 
-            if matched_indices[0].shape[0]:
-                combined_indices = np.stack(matched_indices, axis=1)
-                iou_values = iou[matched_indices][:, None]
-                matches = np.hstack([combined_indices, iou_values])
+            if np.any(matched_indices):
+                matched_rows, matched_cols = np.nonzero(matched_indices)
+                if matched_rows.size > 1:
+                    # Sort matches by IoU in descending order
+                    sorted_indices = np.argsort(-iou[matched_rows, matched_cols])
+                    matched_rows = matched_rows[sorted_indices]
+                    matched_cols = matched_cols[sorted_indices]
 
-                if matched_indices[0].shape[0] > 1:
-                    matches = matches[matches[:, 2].argsort()[::-1]]
-                    matches = matches[np.unique(matches[:, 1], return_index=True)[1]]
-                    matches = matches[np.unique(matches[:, 0], return_index=True)[1]]
+                    # Remove duplicate target and prediction indices by keeping the best IoU
+                    _, unique_pred_indices = np.unique(matched_cols, return_index=True)
+                    matched_rows = matched_rows[unique_pred_indices]
+                    matched_cols = matched_cols[unique_pred_indices]
 
-                correct[matches[:, 1].astype(int), i] = True
+                    _, unique_target_indices = np.unique(
+                        matched_rows, return_index=True
+                    )
+                    matched_rows = matched_rows[unique_target_indices]
+                    matched_cols = matched_cols[unique_target_indices]
+
+                correct[matched_cols, i] = True
 
         return correct
 
