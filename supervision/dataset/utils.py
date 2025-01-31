@@ -1,4 +1,3 @@
-import copy
 import os
 import random
 import shutil
@@ -88,12 +87,19 @@ def map_detections_class_id(
             "Detections class_id must be a subset of source_to_target_mapping keys."
         )
 
-    detections_copy = copy.deepcopy(detections)
-
     if len(detections) > 0:
-        detections_copy.class_id = np.vectorize(source_to_target_mapping.get)(
-            detections_copy.class_id
+        # Create a copy of detections but only the necessary class_id array
+        updated_class_id = np.array(
+            [source_to_target_mapping[class_id] for class_id in detections.class_id]
         )
+
+        # Create a shallow copy of detections and update the class_id field
+        detections_copy = Detections(
+            **{attr: getattr(detections, attr) for attr in detections.__dict__}
+        )
+        detections_copy.class_id = updated_class_id
+    else:
+        detections_copy = detections
 
     return detections_copy
 
