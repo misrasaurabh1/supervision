@@ -113,19 +113,25 @@ class KalmanFilter:
             Tuple[ndarray, ndarray]: Returns the projected mean and
                 covariance matrix of the given state estimate.
         """
+        # Pre-compute repeated terms for efficiency
+        mean_3 = mean[3]
+        std_weight_position_mean3 = self._std_weight_position * mean_3
+
         std = [
-            self._std_weight_position * mean[3],
-            self._std_weight_position * mean[3],
+            std_weight_position_mean3,
+            std_weight_position_mean3,
             1e-1,
-            self._std_weight_position * mean[3],
+            std_weight_position_mean3,
         ]
         innovation_cov = np.diag(np.square(std))
 
-        mean = np.dot(self._update_mat, mean)
-        covariance = np.linalg.multi_dot(
-            (self._update_mat, covariance, self._update_mat.T)
+        # Utilize efficient matrix multiplication
+        mean_transformed = self._update_mat.dot(mean)
+        covariance_transformed = self._update_mat.dot(covariance).dot(
+            self._update_mat.T
         )
-        return mean, covariance + innovation_cov
+
+        return mean_transformed, covariance_transformed + innovation_cov
 
     def multi_predict(
         self, mean: np.ndarray, covariance: np.ndarray
