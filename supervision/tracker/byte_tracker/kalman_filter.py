@@ -144,28 +144,32 @@ class KalmanFilter:
                 covariance matrix of the predicted state.
                 Unobserved velocities are initialized to 0 mean.
         """
-        std_pos = [
-            self._std_weight_position * mean[:, 3],
-            self._std_weight_position * mean[:, 3],
-            1e-2 * np.ones_like(mean[:, 3]),
-            self._std_weight_position * mean[:, 3],
-        ]
-        std_vel = [
-            self._std_weight_velocity * mean[:, 3],
-            self._std_weight_velocity * mean[:, 3],
-            1e-5 * np.ones_like(mean[:, 3]),
-            self._std_weight_velocity * mean[:, 3],
-        ]
-        sqr = np.square(np.r_[std_pos, std_vel]).T
+        std_pos = np.array(
+            [
+                self._std_weight_position * mean[:, 3],
+                self._std_weight_position * mean[:, 3],
+                1e-2 * np.ones_like(mean[:, 3]),
+                self._std_weight_position * mean[:, 3],
+            ]
+        )
 
-        motion_cov = []
-        for i in range(len(mean)):
-            motion_cov.append(np.diag(sqr[i]))
-        motion_cov = np.asarray(motion_cov)
+        std_vel = np.array(
+            [
+                self._std_weight_velocity * mean[:, 3],
+                self._std_weight_velocity * mean[:, 3],
+                1e-5 * np.ones_like(mean[:, 3]),
+                self._std_weight_velocity * mean[:, 3],
+            ]
+        )
+
+        sqr = np.square(np.r_[std_pos, std_vel].T)
+        motion_cov_diag = np.zeros((sqr.shape[0], sqr.shape[1], sqr.shape[1]))
+        diag_indices = np.arange(sqr.shape[1])
+        motion_cov_diag[:, diag_indices, diag_indices] = sqr
 
         mean = np.dot(mean, self._motion_mat.T)
         left = np.dot(self._motion_mat, covariance).transpose((1, 0, 2))
-        covariance = np.dot(left, self._motion_mat.T) + motion_cov
+        covariance = np.dot(left, self._motion_mat.T) + motion_cov_diag
 
         return mean, covariance
 
