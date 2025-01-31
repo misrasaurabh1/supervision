@@ -17,28 +17,45 @@ def detections_to_tensor(
 ) -> np.ndarray:
     """
     Convert Supervision Detections to numpy tensors for further computation
+
     Args:
         detections (sv.Detections): Detections/Targets in the format of sv.Detections
         with_confidence (bool): Whether to include confidence in the tensor
+
     Returns:
         (np.ndarray): Detections as numpy tensors as in (xyxy, class_id,
             confidence) order
     """
+    # Ensure class_id exists
     if detections.class_id is None:
         raise ValueError(
             "ConfusionMatrix can only be calculated for Detections with class_id"
         )
 
-    arrays_to_concat = [detections.xyxy, np.expand_dims(detections.class_id, 1)]
+    # If confidence is needed, ensure it exists
+    if with_confidence and detections.confidence is None:
+        raise ValueError(
+            "ConfusionMatrix can only be calculated for Detections with confidence"
+        )
 
+    num_detections = detections.xyxy.shape[0]
+    # Decide final width of the output: 5 columns if no confidence, else 6
+    num_columns = 5 if not with_confidence else 6
+
+    # Pre-allocate the output array in float to match np.concatenate behavior
+    output = np.zeros((num_detections, num_columns), dtype=float)
+
+    # Copy over xyxy
+    output[:, :4] = detections.xyxy
+
+    # Copy class_id
+    output[:, 4] = detections.class_id
+
+    # If needed, copy confidence
     if with_confidence:
-        if detections.confidence is None:
-            raise ValueError(
-                "ConfusionMatrix can only be calculated for Detections with confidence"
-            )
-        arrays_to_concat.append(np.expand_dims(detections.confidence, 1))
+        output[:, 5] = detections.confidence
 
-    return np.concatenate(arrays_to_concat, axis=1)
+    return output
 
 
 def validate_input_tensors(predictions: List[np.ndarray], targets: List[np.ndarray]):
