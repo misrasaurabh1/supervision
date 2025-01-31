@@ -51,13 +51,8 @@ def approximate_mask_with_polygons(
 
 
 def merge_class_lists(class_lists: List[List[str]]) -> List[str]:
-    unique_classes = set()
-
-    for class_list in class_lists:
-        for class_name in class_list:
-            unique_classes.add(class_name)
-
-    return sorted(list(unique_classes))
+    unique_classes = set().union(*class_lists)
+    return sorted(unique_classes)
 
 
 def build_class_index_mapping(
